@@ -1,112 +1,88 @@
-# 📈 Stock Price Forecasting — LSTM Time-Series Model
+# Google Stock Price Forecasting — LSTM (PyTorch)
 
-**Sequence-based LSTM neural network for financial time-series prediction**
+A two-layer LSTM that predicts the next day's Google **opening price**
+from the previous 5 days' opening prices. Written in PyTorch for a University
+of Adelaide deep learning course.
 
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
-[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.svg)](https://www.tensorflow.org/)
-[![Keras](https://img.shields.io/badge/Keras-LSTM-red.svg)](https://keras.io/)
-
----
-
-## 📌 Overview
-
-This project applies **Long Short-Term Memory (LSTM)** networks to predict Google stock prices using historical market data. LSTMs capture long-range sequential dependencies — making them well-suited for non-stationary financial time series.
-
-University of Adelaide · Deep Learning Assessment 3 · **Grade: 87 / 100**
+All code is in a single notebook cell: [`RNN.ipynb`](RNN.ipynb).
 
 ---
 
-## 📊 Dataset — Google Stock Price (Kaggle)
+## Data
 
-| File | Use |
-|---|---|
-| `Google_Stock_Price_Train.csv` | Model training & validation |
-| `Google_Stock_Price_Test.csv` | Final evaluation (unseen data) |
+The notebook expects two CSVs from the Kaggle *Google Stock Price* dataset in
+the same folder (they are **not** committed to this repo):
 
-- **Feature used:** `Open` price only (normalised with MinMaxScaler to [0, 1])
-- **Sequence construction:** sliding window — input: `seq_length` consecutive prices → target: next price
-- **Train / Validation split:** 80% / 20%
+| File | Rows | Used for |
+|---|---|---|
+| `Google_Stock_Price_Train.csv` | 2012–2016 daily prices | training + validation |
+| `Google_Stock_Price_Test.csv` | January 2017 | test |
 
----
+Only the `Open` column is used.
 
-## 🏗️ Model Architecture
+## Method
 
-```
-Input  → (batch_size, seq_length=15, features=1)
-LSTM   → 50 hidden units (returns sequences)
-LSTM   → 50 hidden units
-Dense  → 1 output (predicted next price)
-```
+1. **Scaling** — `MinMaxScaler` to [0, 1].
+2. **Sequences** — sliding window of `seq_length = 5` days → the next day's price.
+   Train and test sequences are built separately, so the first 5 test days
+   only serve as inputs.
+3. **Split** — training sequences are split 80/20 into train/validation with
+   `train_test_split(random_state=42)`.
+4. **Model** — `LSTMStockPredictor`:
 
-| Parameter | Value |
-|---|---|
-| LSTM layers | 2 (stacked) |
-| Hidden units per layer | 50 |
-| Optimizer | Adam |
-| Loss | Mean Squared Error (MSE) |
-| Epochs | 50 |
-| Batch size | 64 |
-| Learning rate | 0.01 (best found) |
+   ```
+   input (batch, 5, 1)
+   → nn.LSTM(input_size=1, hidden_size=50, num_layers=2, batch_first=True)
+   → last time step → nn.Linear(50, 1)
+   ```
 
----
+5. **Training** — MSE loss, Adam (lr 0.01), 20 epochs, batch size 64.
+6. **Evaluation** — predictions are inverse-scaled back to dollars and scored
+   with MSE, RMSE and MAE on the test set.
 
-## 📈 Results
+The notebook plots actual vs predicted test prices, the train/validation loss
+curves, and a histogram of test residuals.
 
-### Regression Metrics (seq_length = 15)
-
-| Metric | Value |
-|---|---|
-| MSE | 382.96 |
-| RMSE | 19.57 |
-| MAE | 18.56 |
-
-### Sequence Length Comparison
-
-| seq_length | MSE | RMSE | MAE |
-|---|---|---|---|
-| **5** | **130.78** | **11.44** | **7.65** |
-| 10 | 256.14 | 16.00 | 12.36 |
-| 15 | 382.96 | 19.57 | 18.56 |
-
-> Shorter sequences capture short-term trends more effectively for this dataset.
-
-### Key Findings
-- Training loss steadily decreased over 50 epochs — model converged well
-- Validation loss tracks training loss with no significant divergence — good generalisation
-- Residuals skewed positive — model slightly under-predicts during sharp upward moves
-- Best hyperparameters: lr = 0.01, epochs = 50
-
----
-
-## 🔍 Visualisations Produced
-
-1. **Actual vs Predicted prices** — shows trend capture quality
-2. **Training & Validation loss curves** — confirms convergence
-3. **Residual histogram** — distribution of prediction errors
-4. **Moving average overlay** — trend smoothing analysis
-
----
-
-## 🚀 How to Run
+## How to run
 
 ```bash
-git clone https://github.com/chandr-csgp/Assign3.git
-cd Assign3
-
-pip install tensorflow numpy pandas matplotlib scikit-learn
-
-python main.py
+git clone https://github.com/chandr-csgp/LSTM-Stock-Forecating.git
+cd LSTM-Stock-Forecating
+pip install torch numpy pandas scikit-learn matplotlib jupyter
+# put Google_Stock_Price_Train.csv and Google_Stock_Price_Test.csv here
+jupyter notebook RNN.ipynb
 ```
 
+Runs in seconds on a CPU.
+
+## Results
+
+The notebook was committed without outputs, so no metrics are recorded in this
+repo — run it to reproduce them.
+
+## Known limitations
+
+These are worth knowing before reading anything into the error numbers:
+
+- **Scaler fitted on train + test.** `MinMaxScaler` is fitted on all prices,
+  including the test period, so test information leaks into preprocessing.
+  It should be fitted on the training data only.
+- **Shuffled validation split.** `train_test_split` shuffles sequences, so
+  validation windows are interleaved with training windows in time and
+  overlap them. A chronological split (last 20% of the training period) would
+  give an honest validation score.
+- **Very small test set.** The January 2017 file has about 20 trading days,
+  leaving roughly 15 test predictions.
+- **No naive baseline.** Next-day prices are close to today's price, so a
+  "tomorrow = today" forecast is a strong baseline that the LSTM should be
+  compared against.
+- **Single feature.** Only `Open` is used — no volume, high/low or close.
+
+## Tech
+
+Python · PyTorch · pandas · NumPy · scikit-learn · Matplotlib
+
 ---
 
-## 🔧 Tech Stack
-
-`Python` · `TensorFlow` · `Keras` · `NumPy` · `pandas` · `Matplotlib` · `scikit-learn`
-
----
-
-## 👤 Author
-
-**Chandra Sekar Putta** — University of Adelaide, MDS 2024–2026  
+**Chandra Sekar Putta** — Master of Data Science, University of Adelaide ·
 [LinkedIn](https://linkedin.com/in/chandra-sekar-p-b4b033402) · [GitHub](https://github.com/chandr-csgp)
